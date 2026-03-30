@@ -13,8 +13,17 @@ export * from './transactions';
 export * from './assets';
 export * from './streaming';
 export * from './swap';
+export * from './pumpfun';
+export * from './stablecoin';
+export * from './openocean';
+export * from './mev';
+export * from './iris';
+export * from './goldrush';
+export * from './titan';
+export * from './scorechain';
 export { checkAddOns } from './addons';
-export { TOKENS } from './swap';
+export { TOKENS }     from './swap';
+export { OO_TOKENS }  from './openocean';
 
 export class QNSolanaKit {
   public readonly config:     QNConfig;
@@ -115,7 +124,7 @@ export class QNSolanaKit {
     return watchSlot(this.config, onSlot);
   }
 
-  // ── Swap ──────────────────────────────────────────────────
+  // ── Swap (Metis / Jupiter) ────────────────────────────────
   async getSwapQuote(
     options: Parameters<typeof import('./swap').getSwapQuote>[1]
   ) {
@@ -128,6 +137,137 @@ export class QNSolanaKit {
   ) {
     const { swap } = await import('./swap');
     return swap(this.config, options);
+  }
+
+  // ── Pump Fun ──────────────────────────────────────────────
+  async getPumpFunTokens(
+    options?: Parameters<typeof import('./pumpfun').getPumpFunTokens>[1]
+  ) {
+    const { getPumpFunTokens } = await import('./pumpfun');
+    return getPumpFunTokens(this.config, options);
+  }
+
+  async getPumpFunToken(mint: string) {
+    const { getPumpFunToken } = await import('./pumpfun');
+    return getPumpFunToken(this.config, mint);
+  }
+
+  async getPumpFunTokensByCreator(
+    options: Parameters<typeof import('./pumpfun').getPumpFunTokensByCreator>[1]
+  ) {
+    const { getPumpFunTokensByCreator } = await import('./pumpfun');
+    return getPumpFunTokensByCreator(this.config, options);
+  }
+
+  async getPumpFunTokenHolders(mint: string) {
+    const { getPumpFunTokenHolders } = await import('./pumpfun');
+    return getPumpFunTokenHolders(this.config, mint);
+  }
+
+  async getPumpFunTokenTrades(
+    mint: string,
+    options?: Parameters<typeof import('./pumpfun').getPumpFunTokenTrades>[2]
+  ) {
+    const { getPumpFunTokenTrades } = await import('./pumpfun');
+    return getPumpFunTokenTrades(this.config, mint, options);
+  }
+
+  // ── Stablecoin Balance ────────────────────────────────────
+  async getStablecoinBalance(
+    options: Parameters<typeof import('./stablecoin').getStablecoinBalance>[1]
+  ) {
+    const { getStablecoinBalance } = await import('./stablecoin');
+    return getStablecoinBalance(this.config, options);
+  }
+
+  // ── OpenOcean V4 ──────────────────────────────────────────
+  async getOpenOceanQuote(
+    options: Parameters<typeof import('./openocean').getOpenOceanQuote>[1]
+  ) {
+    const { getOpenOceanQuote } = await import('./openocean');
+    return getOpenOceanQuote(this.config, options);
+  }
+
+  async openOceanSwap(
+    options: Parameters<typeof import('./openocean').openOceanSwap>[1]
+  ) {
+    const { openOceanSwap } = await import('./openocean');
+    return openOceanSwap(this.config, options);
+  }
+
+  // ── MEV Protection ────────────────────────────────────────
+  async sendMerkleProtectedTransaction(
+    options: Parameters<typeof import('./mev').sendMerkleProtectedTransaction>[1]
+  ) {
+    const { sendMerkleProtectedTransaction } = await import('./mev');
+    return sendMerkleProtectedTransaction(this.config, options);
+  }
+
+  async sendBlinkLabsTransaction(
+    options: Parameters<typeof import('./mev').sendBlinkLabsTransaction>[1]
+  ) {
+    const { sendBlinkLabsTransaction } = await import('./mev');
+    return sendBlinkLabsTransaction(this.config, options);
+  }
+
+  // ── Iris Transaction Sender ───────────────────────────────
+  async sendIrisTransaction(
+    options: Parameters<typeof import('./iris').sendIrisTransaction>[1]
+  ) {
+    const { sendIrisTransaction } = await import('./iris');
+    return sendIrisTransaction(this.config, options);
+  }
+
+  // ── GoldRush Multichain ───────────────────────────────────
+  async getGoldRushBalances(
+    options: Parameters<typeof import('./goldrush').getGoldRushBalances>[1]
+  ) {
+    const { getGoldRushBalances } = await import('./goldrush');
+    return getGoldRushBalances(this.config, options);
+  }
+
+  async getGoldRushTransactions(
+    options: Parameters<typeof import('./goldrush').getGoldRushTransactions>[1]
+  ) {
+    const { getGoldRushTransactions } = await import('./goldrush');
+    return getGoldRushTransactions(this.config, options);
+  }
+
+  // ── Titan DeFi Swap ───────────────────────────────────────
+  async getTitanSwapQuote(
+    options: Parameters<typeof import('./titan').getTitanSwapQuote>[1]
+  ) {
+    const { getTitanSwapQuote } = await import('./titan');
+    return getTitanSwapQuote(this.config, options);
+  }
+
+  async titanSwap(
+    options: Parameters<typeof import('./titan').titanSwap>[1]
+  ) {
+    const { titanSwap } = await import('./titan');
+    return titanSwap(this.config, options);
+  }
+
+  subscribeTitanQuotes(
+    options:  Parameters<typeof import('./titan').subscribeTitanQuotes>[1],
+    onQuote:  Parameters<typeof import('./titan').subscribeTitanQuotes>[2],
+    onError?: Parameters<typeof import('./titan').subscribeTitanQuotes>[3]
+  ) {
+    const { subscribeTitanQuotes } = require('./titan');
+    return subscribeTitanQuotes(this.config, options, onQuote, onError);
+  }
+
+  // ── Scorechain Risk Assessment ────────────────────────────
+  async assessWalletRisk(
+    options: Parameters<typeof import('./scorechain').assessWalletRisk>[1]
+  ) {
+    const { assessWalletRisk } = await import('./scorechain');
+    return assessWalletRisk(this.config, options);
+  }
+
+  async isWalletSafe(address: string) {
+    const { isWalletSafe } = await import('./scorechain');
+    return isWalletSafe(this.config, address);
   }
 }
 

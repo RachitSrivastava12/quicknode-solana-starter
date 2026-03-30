@@ -1,53 +1,82 @@
 {
-  "name": "@quicknode/solana-kit",
-  "version": "1.0.0",
+  "name": "quicknode-solana-kit",
+  "version": "1.0.2",
   "description": "Unified TypeScript SDK for all QuickNode Solana add-ons — Priority Fees, Jito, Metaplex DAS, Jupiter, Yellowstone",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "keywords": [
+    "solana",
+    "quicknode",
+    "rpc",
+    "priority-fees",
+    "jito",
+    "metaplex",
+    "das",
+    "jupiter",
+    "yellowstone",
+    "nft",
+    "defi",
+    "web3",
+    "blockchain",
+    "typescript"
+  ],
+  "homepage": "https://github.com/RachitSrivastava12/quicknode-solana-starter#readme",
+  "bugs": {
+    "url": "https://github.com/RachitSrivastava12/quicknode-solana-starter/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RachitSrivastava12/quicknode-solana-starter.git"
+  },
+  "license": "MIT",
+  "author": "Rachit",
   "type": "commonjs",
   "exports": {
     ".": {
       "require": "./dist/index.js",
-      "types":   "./dist/index.d.ts"
+      "types": "./dist/index.d.ts"
     }
   },
-  "scripts": {
-    "build":           "tsc",
-    "dev":             "tsc --watch",
-    "test":            "jest --forceExit",
-    "test:coverage":   "jest --coverage --forceExit",
-    "check":           "npx ts-node src/cli/check.ts",
-    "example:tx":      "npx ts-node examples/1-smart-transaction.ts",
-    "example:nft":     "npx ts-node examples/2-nft-queries.ts",
-    "example:stream":  "npx ts-node examples/3-live-streaming.ts",
-    "example:swap":    "npx ts-node examples/4-jupiter-swap.ts",
-    "example:all":     "npx ts-node examples/run-all.ts"
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "directories": {
+    "example": "examples"
   },
-  "keywords": [
-    "solana", "quicknode", "rpc", "priority-fees",
-    "jito", "metaplex", "das", "jupiter", "yellowstone",
-    "nft", "defi", "web3", "blockchain", "typescript"
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "jest --forceExit",
+    "test:coverage": "jest --coverage --forceExit",
+    "check": "npx ts-node src/cli/check.ts",
+    "example:tx": "npx ts-node examples/1-smart-transaction.ts",
+    "example:nft": "npx ts-node examples/2-nft-queries.ts",
+    "example:stream": "npx ts-node examples/3-live-streaming.ts",
+    "example:swap": "npx ts-node examples/4-jupiter-swap.ts",
+    "example:all": "npx ts-node examples/run-all.ts"
+  },
   "dependencies": {
-    "@solana/web3.js":   "^1.95.4",
+    "@solana/web3.js": "^1.95.4",
     "@solana/spl-token": "^0.4.9",
-    "bs58":              "^5.0.0",
-    "dotenv":            "^16.4.5",
-    "chalk":             "^4.1.2"
+    "bs58": "^5.0.0",
+    "dotenv": "^16.4.5",
+    "chalk": "^4.1.2"
   },
   "devDependencies": {
-    "typescript":    "^5.4.5",
-    "ts-node":       "^10.9.2",
-    "@types/node":   "^20.14.9",
-    "@types/bs58":   "^4.0.4",
-    "jest":          "^29.7.0",
-    "@types/jest":   "^29.5.12",
-    "ts-jest":       "^29.2.2"
+    "typescript": "^5.4.5",
+    "ts-node": "^10.9.2",
+    "@types/node": "^20.14.9",
+    "@types/bs58": "^4.0.4",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.12",
+    "ts-jest": "^29.2.2"
   },
   "peerDependencies": {
     "@solana/web3.js": "^1.95.4"
   },
-  "files": ["dist", "README.md", "LICENSE"],
-  "license": "MIT",
-  "engines": { "node": ">=18.0.0" }
+  "engines": {
+    "node": ">=18.0.0"
+  }
 }

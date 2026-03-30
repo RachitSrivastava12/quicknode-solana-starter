@@ -10,6 +10,7 @@ interface AddOnMeta {
 }
 
 const ADD_ON_META: Record<AddOnKey, AddOnMeta> = {
+  // ── QuickNode native ──────────────────────────────────────
   priorityFees: {
     tier:        'free',
     displayName: 'Priority Fee API',
@@ -34,6 +35,52 @@ const ADD_ON_META: Record<AddOnKey, AddOnMeta> = {
     tier:        'paid',
     displayName: 'Yellowstone gRPC',
     description: 'Ultra-low-latency real-time account and program streaming',
+  },
+  pumpfun: {
+    tier:        'free',
+    displayName: 'Pump Fun API',
+    description: 'Access pump.fun token data, bonding curves, and trades',
+  },
+  stablecoinBalance: {
+    tier:        'paid',
+    displayName: 'Multi-Chain Stablecoin Balance API',
+    description: 'Query stablecoin holdings across 10+ chains from one call',
+  },
+  // ── Third-party ───────────────────────────────────────────
+  openocean: {
+    tier:        'free',
+    displayName: 'OpenOcean V4 Swap API',
+    description: 'Best-rate DeFi swaps aggregated across 40+ chains',
+  },
+  merkle: {
+    tier:        'free',
+    displayName: 'Solana MEV Protection & Recovery',
+    description: 'MEV-protected transaction submission via Merkle',
+  },
+  blinklabs: {
+    tier:        'free',
+    displayName: 'Solana MEV Resilience & Recovery',
+    description: 'Improved transaction execution quality via Blink Labs',
+  },
+  iris: {
+    tier:        'paid',
+    displayName: 'Iris Transaction Sender',
+    description: 'Lightning-fast Solana transaction sender with p90 sub-slot latency',
+  },
+  goldrush: {
+    tier:        'paid',
+    displayName: 'GoldRush — Multichain Data APIs',
+    description: 'Onchain data from 100+ chains via Covalent',
+  },
+  titan: {
+    tier:        'paid',
+    displayName: 'DeFi Swap Meta-Aggregation API',
+    description: 'WebSocket-based streaming executable swap quotes via Titan',
+  },
+  scorechain: {
+    tier:        'paid',
+    displayName: 'Risk Assessment API',
+    description: 'AML/CFT risk scoring and compliance checks via Scorechain',
   },
 };
 

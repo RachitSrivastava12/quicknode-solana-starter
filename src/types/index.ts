@@ -5,11 +5,22 @@
 export interface QNConfig {
   endpointUrl:  string;
   addOns?: {
-    priorityFees?: boolean;
-    liljit?:       boolean;
-    das?:          boolean;
-    metis?:        boolean;
-    yellowstone?:  boolean;
+    // QuickNode native
+    priorityFees?:      boolean;
+    liljit?:            boolean;
+    das?:               boolean;
+    metis?:             boolean;
+    yellowstone?:       boolean;
+    pumpfun?:           boolean;
+    stablecoinBalance?: boolean;
+    // Third-party
+    openocean?:         boolean;
+    merkle?:            boolean;
+    blinklabs?:         boolean;
+    iris?:              boolean;
+    goldrush?:          boolean;
+    titan?:             boolean;
+    scorechain?:        boolean;
   };
   commitment?: 'processed' | 'confirmed' | 'finalized';
   timeout?:    number;
@@ -234,10 +245,295 @@ export interface AddOnCheckResult {
   endpoint:  string;
   addOns:    AddOnStatus[];
   canUse: {
-    smartTransactions: boolean;
-    nftQueries:        boolean;
-    swaps:             boolean;
-    yellowstoneStream: boolean;
-    jitoBundle:        boolean;
+    smartTransactions:  boolean;
+    nftQueries:         boolean;
+    swaps:              boolean;
+    yellowstoneStream:  boolean;
+    jitoBundle:         boolean;
+    pumpFun:            boolean;
+    stablecoinBalances: boolean;
+    openOceanSwaps:     boolean;
+    merkleProtection:   boolean;
+    blinkLabsProtection:boolean;
+    irisTransactions:   boolean;
+    goldRushData:       boolean;
+    titanSwaps:         boolean;
+    riskAssessment:     boolean;
   };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Pump Fun API
+// ─────────────────────────────────────────────────────────────
+
+export interface PumpFunToken {
+  mint:             string;
+  name:             string;
+  symbol:           string;
+  description?:     string;
+  image?:           string;
+  creator:          string;
+  createdTimestamp: number;
+  marketCapSol:     number;
+  usdMarketCap?:    number;
+  price:            number;
+  bondingCurve: {
+    virtualTokenReserves: string;
+    virtualSolReserves:   string;
+    realTokenReserves:    string;
+    realSolReserves:      string;
+    tokenTotalSupply:     string;
+    complete:             boolean;
+  };
+  raydiumPool?: string;
+  graduated:    boolean;
+  website?:     string;
+  twitter?:     string;
+  telegram?:    string;
+}
+
+export interface PumpFunTokenHolder {
+  address:    string;
+  balance:    string;
+  percentage: number;
+}
+
+export interface PumpFunTrade {
+  signature:   string;
+  mint:        string;
+  solAmount:   string;
+  tokenAmount: string;
+  isBuy:       boolean;
+  user:        string;
+  timestamp:   number;
+  slot:        number;
+}
+
+export interface GetPumpFunTokensOptions {
+  limit?:        number;
+  offset?:       number;
+  includeNsfw?:  boolean;
+}
+
+export interface GetPumpFunTokensByCreatorOptions {
+  creator: string;
+  limit?:  number;
+  offset?: number;
+}
+
+export interface GetPumpFunTradesOptions {
+  limit?:  number;
+  offset?: number;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Multi-Chain Stablecoin Balance API
+// ─────────────────────────────────────────────────────────────
+
+export interface StablecoinBalance {
+  chain:           string;
+  contractAddress: string;
+  name:            string;
+  symbol:          string;
+  decimals:        number;
+  balance:         string;
+  usdValue:        number;
+  logo?:           string;
+}
+
+export interface GetStablecoinBalanceOptions {
+  walletAddress: string;
+  chains?:       string[];
+}
+
+export interface StablecoinBalanceResult {
+  walletAddress: string;
+  totalUsdValue: number;
+  balances:      StablecoinBalance[];
+}
+
+// ─────────────────────────────────────────────────────────────
+// OpenOcean V4 Swap API
+// ─────────────────────────────────────────────────────────────
+
+export interface OpenOceanToken {
+  address:  string;
+  name:     string;
+  symbol:   string;
+  decimals: number;
+}
+
+export interface OpenOceanQuoteOptions {
+  inTokenAddress:  string;
+  outTokenAddress: string;
+  amount:          string;
+  slippage?:       number;
+}
+
+export interface OpenOceanQuote {
+  inToken:      OpenOceanToken;
+  outToken:     OpenOceanToken;
+  inAmount:     string;
+  outAmount:    string;
+  minOutAmount: string;
+  priceImpact:  string;
+  estimatedGas: string;
+  path:         Array<{ name: string; part: number }>;
+}
+
+export interface OpenOceanSwapOptions extends OpenOceanQuoteOptions {
+  userAddress: string;
+}
+
+export interface OpenOceanSwapResult {
+  signature:      string;
+  inAmount:       string;
+  outAmount:      string;
+  confirmationMs: number;
+}
+
+// ─────────────────────────────────────────────────────────────
+// MEV Protection (Merkle + Blink Labs)
+// ─────────────────────────────────────────────────────────────
+
+export interface MevProtectedTxOptions {
+  serializedTransaction: string;   // base64-encoded signed transaction
+  tipLamports?:          number;
+}
+
+export interface MevTxResult {
+  signature:      string;
+  provider:       'merkle' | 'blinklabs';
+  confirmationMs: number;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Iris Transaction Sender
+// ─────────────────────────────────────────────────────────────
+
+export interface IrisTxOptions {
+  serializedTransaction: string;   // base64-encoded signed transaction
+  skipPreflight?:        boolean;
+  maxRetries?:           number;
+}
+
+export interface IrisTxResult {
+  signature:      string;
+  slot?:          number;
+  confirmationMs: number;
+}
+
+// ─────────────────────────────────────────────────────────────
+// GoldRush Multichain Data APIs
+// ─────────────────────────────────────────────────────────────
+
+export interface GoldRushTokenBalance {
+  contractAddress: string;
+  name:            string;
+  symbol:          string;
+  decimals:        number;
+  logo?:           string;
+  balance:         string;
+  usdBalance?:     string;
+  isSpam?:         boolean;
+}
+
+export interface GoldRushBalancesResult {
+  chain:     string;
+  address:   string;
+  updatedAt: string;
+  items:     GoldRushTokenBalance[];
+}
+
+export interface GoldRushTransaction {
+  blockSignedAt: string;
+  txHash:        string;
+  successful:    boolean;
+  fromAddress:   string;
+  toAddress?:    string;
+  value:         string;
+  feesPaid:      string;
+  gasSpent:      string;
+  gasPrice:      string;
+}
+
+export interface GetGoldRushBalancesOptions {
+  walletAddress:  string;
+  chain?:         string;
+  noSpam?:        boolean;
+  quoteCurrency?: string;
+}
+
+export interface GetGoldRushTransactionsOptions {
+  walletAddress: string;
+  chain?:        string;
+  pageSize?:     number;
+  pageNumber?:   number;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Titan DeFi Swap Meta-Aggregation
+// ─────────────────────────────────────────────────────────────
+
+export interface TitanQuoteOptions {
+  inputMint:    string;
+  outputMint:   string;
+  amount:       string;
+  slippageBps?: number;
+}
+
+export interface TitanSwapRoute {
+  dex:       string;
+  percent:   number;
+  inAmount:  string;
+  outAmount: string;
+}
+
+export interface TitanSwapQuote {
+  inputMint:      string;
+  outputMint:     string;
+  inAmount:       string;
+  outAmount:      string;
+  minOutAmount:   string;
+  priceImpactPct: string;
+  routes:         TitanSwapRoute[];
+  timestamp:      number;
+}
+
+export interface TitanSwapOptions extends TitanQuoteOptions {
+  userPublicKey:         string;
+  serializedTransaction?: string;
+}
+
+export interface TitanSwapResult {
+  signature:      string;
+  inAmount:       string;
+  outAmount:      string;
+  confirmationMs: number;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Scorechain Risk Assessment API
+// ─────────────────────────────────────────────────────────────
+
+export interface AssessWalletRiskOptions {
+  address:  string;
+  network?: string;
+}
+
+export interface RiskFlag {
+  category:    string;
+  description: string;
+  severity:    'low' | 'medium' | 'high' | 'critical';
+}
+
+export interface WalletRiskAssessment {
+  address:    string;
+  network:    string;
+  riskScore:  number;
+  riskLevel:  'low' | 'medium' | 'high' | 'severe';
+  amlStatus:  'clean' | 'flagged' | 'blocked';
+  flags:      RiskFlag[];
+  reportUrl?: string;
+  assessedAt: string;
 }
