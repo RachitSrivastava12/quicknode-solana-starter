@@ -1,6 +1,6 @@
 {
   "name": "quicknode-solana-kit",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Unified TypeScript SDK for all QuickNode Solana add-ons — Priority Fees, Jito, Metaplex DAS, Jupiter, Yellowstone",
   "keywords": [
     "solana",
