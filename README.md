@@ -2,49 +2,59 @@
 
 Typed Solana SDK for QuickNode endpoints and QuickNode-powered add-ons.
 
-This package gives you one client for:
+This package gives you one place to work with:
 
-- normal Solana RPC via `@solana/web3.js`
-- QuickNode custom RPC methods
-- QuickNode-mounted REST add-ons
-- real-time subscriptions through Solana WebSockets
+- standard Solana RPC
+- standard Solana WebSocket subscriptions
+- QuickNode custom JSON-RPC methods
+- QuickNode REST add-ons mounted on the same endpoint
 
-If all you know today is:
+If your current Solana setup looks like this:
 
 ```ts
 import { Connection } from '@solana/web3.js';
 
-const connection = new Connection('https://your-endpoint.quiknode.pro/TOKEN/', 'confirmed');
+const connection = new Connection(
+  'https://your-endpoint.quiknode.pro/TOKEN/',
+  'confirmed',
+);
 ```
 
-this package is the next layer on top of that.
+then `quicknode-solana-kit` is the layer on top of that.
 
-It still uses a normal Solana `Connection`, but wraps common QuickNode features into a single typed API.
+It still uses a normal Solana `Connection`, but adds typed helper methods for common QuickNode add-ons and transaction workflows.
 
 ```bash
 npm install quicknode-solana-kit
 ```
 
-## What This Package Actually Does
+## What This Package Is
 
-`quicknode-solana-kit` is not a replacement for Solana RPC.
+This package is a wrapper around three patterns:
 
-It is a wrapper around three patterns:
+1. normal Solana `Connection` calls from `@solana/web3.js`
+2. QuickNode custom RPC methods such as `qn_estimatePriorityFees`
+3. QuickNode REST endpoints such as `/jupiter/v6/quote`
 
-1. Standard Solana RPC and WebSocket calls through `@solana/web3.js`
-2. QuickNode custom JSON-RPC methods like `qn_estimatePriorityFees`
-3. REST-style add-ons mounted on your QuickNode endpoint like `/jupiter/v6/quote`
+It does not replace Solana RPC. It organizes it.
 
-The package creates a normal Solana `Connection` internally, then adds methods like:
+You get:
 
-- `sendSmartTransaction()`
-- `estimatePriorityFees()`
-- `getAssetsByOwner()`
-- `getSwapQuote()`
-- `getPumpFunTokens()`
-- `sendMerkleProtectedTransaction()`
-- `getGoldRushBalances()`
-- `assessWalletRisk()`
+- `kit.connection` for normal Solana calls
+- `kit.someMethod()` for QuickNode helper methods
+
+Example:
+
+```ts
+import { QNSolanaKit } from 'quicknode-solana-kit';
+
+const kit = new QNSolanaKit({
+  endpointUrl: 'https://your-endpoint.quiknode.pro/TOKEN/',
+});
+
+const slot = await kit.connection.getSlot();
+console.log(slot);
+```
 
 ## Install
 
@@ -52,28 +62,20 @@ The package creates a normal Solana `Connection` internally, then adds methods l
 npm install quicknode-solana-kit
 ```
 
-Peer/runtime requirements:
+Requirements:
 
 - Node.js 18+
 - a QuickNode Solana endpoint
 
 ## Quick Start
 
-### 1. Create a QuickNode Solana endpoint
-
-Example endpoint:
-
-```txt
-https://your-name.solana-mainnet.quiknode.pro/YOUR_TOKEN/
-```
-
-### 2. Create the client
+### 1. Create the kit
 
 ```ts
 import { QNSolanaKit } from 'quicknode-solana-kit';
 
 const kit = new QNSolanaKit({
-  endpointUrl: 'https://your-name.solana-mainnet.quiknode.pro/YOUR_TOKEN/',
+  endpointUrl: 'https://your-endpoint.quiknode.pro/TOKEN/',
   commitment: 'confirmed',
   timeout: 30_000,
   addOns: {
@@ -95,14 +97,28 @@ const kit = new QNSolanaKit({
 });
 ```
 
-### 3. Use the built-in Solana connection
+### 2. Use normal Solana methods
 
 ```ts
+import { PublicKey } from '@solana/web3.js';
+
+const wallet = new PublicKey('E645TckHQnDcavVv92Etc6xSWQaq8zzPtPRGBheviRAk');
+
+const balance = await kit.connection.getBalance(wallet);
+const slot = await kit.connection.getSlot();
 const blockhash = await kit.connection.getLatestBlockhash();
-console.log(blockhash.blockhash);
+
+console.log(balance, slot, blockhash.blockhash);
 ```
 
-### 4. Probe your endpoint
+### 3. Use kit helper methods
+
+```ts
+const tokenAccounts = await kit.getTokenAccounts(wallet.toString());
+console.log(tokenAccounts.length);
+```
+
+### 4. Check which add-ons are live
 
 ```ts
 const status = await kit.checkAddOns();
@@ -110,19 +126,48 @@ console.log(status.addOns);
 console.log(status.canUse);
 ```
 
-You can also run the CLI:
+CLI:
 
 ```bash
 npm run check
 ```
 
-## How Add-Ons Work
+## Can You Still Use Built-In Solana `Connection` Methods?
 
-This package uses add-ons in two ways:
+Yes.
+
+This is one of the most important points in the whole package.
+
+`kit.connection` is a real `Connection` instance from `@solana/web3.js`.
+
+That means you can still use methods like:
+
+```ts
+const version = await kit.connection.getVersion();
+const slot = await kit.connection.getSlot();
+const balance = await kit.connection.getBalance(walletPublicKey);
+const blockhash = await kit.connection.getLatestBlockhash();
+const tx = await kit.connection.getTransaction(signature, {
+  maxSupportedTransactionVersion: 0,
+});
+```
+
+So the mental model is:
+
+- `kit.connection` = normal Solana SDK access
+- `kit.someMethod()` = helper wrapper provided by this package
+
+## Add-On Model
+
+Some methods work without add-ons.
+
+Some methods require a specific QuickNode add-on.
+
+This package handles add-ons in two ways:
 
 ### 1. Local config guard
 
-You declare what you think is enabled:
+You tell the SDK what you believe is enabled:
 
 ```ts
 const kit = new QNSolanaKit({
@@ -135,15 +180,13 @@ const kit = new QNSolanaKit({
 });
 ```
 
-If you explicitly set an add-on to `false` and call a method that requires it, the SDK throws an `AddOnNotEnabledError`.
+If you explicitly set an add-on to `false` and call a method that needs it, the SDK throws an `AddOnNotEnabledError`.
 
-If you leave a value `undefined`, the SDK warns and still tries the network call.
+If a value is left `undefined`, the SDK warns and still attempts the network call.
 
-### 2. Real endpoint capability
+### 2. Real endpoint probe
 
-The actual source of truth is your endpoint.
-
-`checkAddOns()` probes the endpoint by making sample RPC or REST calls and returns what is live.
+`checkAddOns()` performs real test calls to your endpoint and tells you what is actually live.
 
 ```ts
 const result = await kit.checkAddOns();
@@ -151,188 +194,276 @@ const result = await kit.checkAddOns();
 console.log(result.canUse.smartTransactions);
 console.log(result.canUse.nftQueries);
 console.log(result.canUse.swaps);
-console.log(result.canUse.openOceanSwaps);
 console.log(result.canUse.goldRushData);
+console.log(result.canUse.riskAssessment);
 ```
 
-## Add-On Map
+## How This SDK Talks To QuickNode
 
-Here is how each add-on is implemented inside the package.
+There are three backend styles used in this package.
 
-| Add-on key | What it unlocks | Transport used by SDK | Example endpoint shape |
-|---|---|---|---|
-| `priorityFees` | live fee estimation and smart tx fee selection | JSON-RPC | `qn_estimatePriorityFees` |
-| `das` | NFT / digital asset queries | JSON-RPC | `getAssetsByOwner` |
-| `metis` | Jupiter quote and swap | REST | `/jupiter/v6/quote` |
-| `yellowstone` | account streaming preference | currently falls back to WebSocket | no active gRPC client yet |
-| `liljit` | intended Jito support | checked by probe, not fully wired into smart tx flow yet | `sendBundle` |
-| `pumpfun` | pump.fun market data | REST | `/pump-fun/coins` |
-| `stablecoinBalance` | stablecoin balances across chains | JSON-RPC | `qn_getWalletStablecoinBalances` |
-| `openocean` | OpenOcean quote and swap | REST | `/openocean/v4/solana/quote` |
-| `merkle` | MEV-protected tx submission | JSON-RPC | `mev_sendTransaction` |
-| `blinklabs` | alternate protected tx submission | JSON-RPC | `blinklabs_sendTransaction` |
-| `iris` | low-latency tx sender | JSON-RPC | `iris_sendTransaction` |
-| `goldrush` | multichain balances and tx history | REST | `/goldrush/v1/...` |
-| `titan` | swap quote, swap, quote stream | REST + WebSocket | `/titan/v1/quote` |
-| `scorechain` | wallet risk checks | REST | `/scorechain/v1/risk` |
+### 1. Standard Solana RPC
 
-## Common Pattern
-
-Most features follow one of these flows.
-
-### Standard Solana RPC
+Example:
 
 ```ts
-const accounts = await kit.connection.getTokenAccountsByOwner(
-  wallet,
-  { programId: TOKEN_PROGRAM_ID },
-);
+await kit.connection.getBalance(pubkey);
 ```
 
-### QuickNode custom RPC
+### 2. QuickNode Custom JSON-RPC
 
-The SDK hides the raw method call:
+Example:
 
 ```ts
-const fees = await kit.estimatePriorityFees();
+await kit.estimatePriorityFees();
 ```
 
-instead of:
+Internally, that becomes a JSON-RPC request similar to:
 
-```ts
-await fetch(endpoint, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    jsonrpc: '2.0',
-    id: 1,
-    method: 'qn_estimatePriorityFees',
-    params: { last_n_blocks: 100, api_version: 2 },
-  }),
-});
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "qn_estimatePriorityFees",
+  "params": {
+    "last_n_blocks": 100,
+    "api_version": 2
+  }
+}
 ```
 
-### REST add-on mounted on the same endpoint
+### 3. QuickNode REST Add-On Route
 
-The SDK also hides path-building:
+Example:
 
 ```ts
-const quote = await kit.getSwapQuote({
+await kit.getSwapQuote({
   inputMint: TOKENS.SOL,
   outputMint: TOKENS.USDC,
   amount: BigInt(1_000_000_000),
 });
 ```
 
-instead of manually calling:
+Internally, that calls a route like:
 
 ```txt
 https://your-endpoint.quiknode.pro/TOKEN/jupiter/v6/quote?...
 ```
 
-## Client Configuration
+## Full Method Count
 
-```ts
-import { QNSolanaKit } from 'quicknode-solana-kit';
+The `QNSolanaKit` class currently exposes **33 methods**.
 
-const kit = new QNSolanaKit({
-  endpointUrl: process.env.QN_ENDPOINT_URL!,
-  commitment: 'confirmed',
-  timeout: 30_000,
-  addOns: {
-    priorityFees: true,
-    das: true,
-  },
-});
-```
+They are:
 
-### Config fields
+1. `checkAddOns()`
+2. `sendSmartTransaction()`
+3. `prepareSmartTransaction()`
+4. `estimatePriorityFees()`
+5. `getAssetsByOwner()`
+6. `getAsset()`
+7. `getAssetsByCollection()`
+8. `searchAssets()`
+9. `getAssetProof()`
+10. `getTokenAccounts()`
+11. `watchAccount()`
+12. `watchProgram()`
+13. `watchSlot()`
+14. `getSwapQuote()`
+15. `swap()`
+16. `getPumpFunTokens()`
+17. `getPumpFunToken()`
+18. `getPumpFunTokensByCreator()`
+19. `getPumpFunTokenHolders()`
+20. `getPumpFunTokenTrades()`
+21. `getStablecoinBalance()`
+22. `getOpenOceanQuote()`
+23. `openOceanSwap()`
+24. `sendMerkleProtectedTransaction()`
+25. `sendBlinkLabsTransaction()`
+26. `sendIrisTransaction()`
+27. `getGoldRushBalances()`
+28. `getGoldRushTransactions()`
+29. `getTitanSwapQuote()`
+30. `titanSwap()`
+31. `subscribeTitanQuotes()`
+32. `assessWalletRisk()`
+33. `isWalletSafe()`
 
-```ts
-interface QNConfig {
-  endpointUrl: string;
-  commitment?: 'processed' | 'confirmed' | 'finalized';
-  timeout?: number;
-  addOns?: {
-    priorityFees?: boolean;
-    liljit?: boolean;
-    das?: boolean;
-    metis?: boolean;
-    yellowstone?: boolean;
-    pumpfun?: boolean;
-    stablecoinBalance?: boolean;
-    openocean?: boolean;
-    merkle?: boolean;
-    blinklabs?: boolean;
-    iris?: boolean;
-    goldrush?: boolean;
-    titan?: boolean;
-    scorechain?: boolean;
-  };
-}
-```
+Also important:
+
+- `kit.connection` is a property, not a method
+- but it gives you access to normal Solana `Connection` methods
+
+## Add-On Requirements Table
+
+| Method | What it does | Add-on needed? | Add-on name |
+|---|---|---|---|
+| `checkAddOns()` | probes endpoint capabilities | No | none |
+| `sendSmartTransaction()` | sends a tx with fee/compute helpers | No, but better with add-on | `priorityFees` recommended |
+| `prepareSmartTransaction()` | prepares a tx with fee/compute helpers | No, but better with add-on | `priorityFees` recommended |
+| `estimatePriorityFees()` | gets live priority fee estimates | Yes | `priorityFees` |
+| `getAssetsByOwner()` | gets wallet assets | Yes | `das` |
+| `getAsset()` | gets one digital asset | Yes | `das` |
+| `getAssetsByCollection()` | gets assets by collection | Yes | `das` |
+| `searchAssets()` | searches digital assets | Yes | `das` |
+| `getAssetProof()` | gets compressed NFT proof | Yes | `das` |
+| `getTokenAccounts()` | gets SPL token accounts | No | none |
+| `watchAccount()` | watches one account | No | none |
+| `watchProgram()` | watches program logs | No | none |
+| `watchSlot()` | watches slot changes | No | none |
+| `getSwapQuote()` | gets Jupiter quote | Yes | `metis` |
+| `swap()` | performs Jupiter swap | Yes | `metis` |
+| `getPumpFunTokens()` | gets recent pump.fun tokens | Yes | `pumpfun` |
+| `getPumpFunToken()` | gets one pump.fun token | Yes | `pumpfun` |
+| `getPumpFunTokensByCreator()` | gets pump.fun tokens by creator | Yes | `pumpfun` |
+| `getPumpFunTokenHolders()` | gets token holders | Yes | `pumpfun` |
+| `getPumpFunTokenTrades()` | gets recent token trades | Yes | `pumpfun` |
+| `getStablecoinBalance()` | gets stablecoin balances across chains | Yes | `stablecoinBalance` |
+| `getOpenOceanQuote()` | gets OpenOcean quote | Yes | `openocean` |
+| `openOceanSwap()` | performs OpenOcean swap | Yes | `openocean` |
+| `sendMerkleProtectedTransaction()` | sends tx through Merkle | Yes | `merkle` |
+| `sendBlinkLabsTransaction()` | sends tx through Blink Labs | Yes | `blinklabs` |
+| `sendIrisTransaction()` | sends tx through Iris | Yes | `iris` |
+| `getGoldRushBalances()` | gets balances through GoldRush | Yes | `goldrush` |
+| `getGoldRushTransactions()` | gets tx history through GoldRush | Yes | `goldrush` |
+| `getTitanSwapQuote()` | gets Titan quote | Yes | `titan` |
+| `titanSwap()` | performs Titan swap | Yes | `titan` |
+| `subscribeTitanQuotes()` | subscribes to Titan quote stream | Yes | `titan` |
+| `assessWalletRisk()` | gets Scorechain risk report | Yes | `scorechain` |
+| `isWalletSafe()` | returns simple safe/unsafe boolean | Yes | `scorechain` |
+
+## Which Features Need No Add-On?
+
+These work without add-ons:
+
+- `checkAddOns()`
+- `sendSmartTransaction()` with fallback behavior
+- `prepareSmartTransaction()` with fallback behavior
+- `getTokenAccounts()`
+- `watchAccount()`
+- `watchProgram()`
+- `watchSlot()`
+- all built-in `kit.connection.*` methods
+
+## Which Add-On Unlocks What?
+
+### `priorityFees`
+
+Unlocks:
+
+- `estimatePriorityFees()`
+- improved `sendSmartTransaction()`
+- improved `prepareSmartTransaction()`
+
+### `das`
+
+Unlocks:
+
+- `getAssetsByOwner()`
+- `getAsset()`
+- `getAssetsByCollection()`
+- `searchAssets()`
+- `getAssetProof()`
+
+### `metis`
+
+Unlocks:
+
+- `getSwapQuote()`
+- `swap()`
+
+### `pumpfun`
+
+Unlocks:
+
+- `getPumpFunTokens()`
+- `getPumpFunToken()`
+- `getPumpFunTokensByCreator()`
+- `getPumpFunTokenHolders()`
+- `getPumpFunTokenTrades()`
+
+### `stablecoinBalance`
+
+Unlocks:
+
+- `getStablecoinBalance()`
+
+### `openocean`
+
+Unlocks:
+
+- `getOpenOceanQuote()`
+- `openOceanSwap()`
+
+### `merkle`
+
+Unlocks:
+
+- `sendMerkleProtectedTransaction()`
+
+### `blinklabs`
+
+Unlocks:
+
+- `sendBlinkLabsTransaction()`
+
+### `iris`
+
+Unlocks:
+
+- `sendIrisTransaction()`
+
+### `goldrush`
+
+Unlocks:
+
+- `getGoldRushBalances()`
+- `getGoldRushTransactions()`
+
+### `titan`
+
+Unlocks:
+
+- `getTitanSwapQuote()`
+- `titanSwap()`
+- `subscribeTitanQuotes()`
+
+### `scorechain`
+
+Unlocks:
+
+- `assessWalletRisk()`
+- `isWalletSafe()`
 
 ## API Reference
 
-### Diagnostics
+### `checkAddOns()`
 
-#### `kit.checkAddOns()`
+Checks which add-ons are actually enabled on your endpoint.
 
-Probes your endpoint and returns add-on availability.
-
-```ts
-const status = await kit.checkAddOns();
-
-for (const addon of status.addOns) {
-  console.log(addon.name, addon.enabled, addon.tier);
-}
-
-console.log(status.canUse.smartTransactions);
-console.log(status.canUse.nftQueries);
-console.log(status.canUse.swaps);
-console.log(status.canUse.pumpFun);
-console.log(status.canUse.goldRushData);
-console.log(status.canUse.riskAssessment);
-```
-
-### Transactions
-
-#### `kit.estimatePriorityFees(options?)`
-
-Requires: `priorityFees`
-
-Gets live priority fee estimates from QuickNode.
+Add-on required: none
 
 ```ts
-const fees = await kit.estimatePriorityFees();
+const result = await kit.checkAddOns();
 
-console.log(fees.low);
-console.log(fees.medium);
-console.log(fees.recommended);
-console.log(fees.high);
-console.log(fees.extreme);
-console.log(fees.networkCongestion);
+console.log(result.addOns);
+console.log(result.canUse.smartTransactions);
+console.log(result.canUse.nftQueries);
+console.log(result.canUse.swaps);
 ```
 
-With an account filter:
+How it works:
 
-```ts
-const fees = await kit.estimatePriorityFees({
-  account: 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4',
-  lastNBlocks: 50,
-});
-```
+- performs real probe calls to your endpoint
+- tests both RPC-based and REST-based add-ons
+- returns a structured capability report
 
-#### `kit.sendSmartTransaction({ transaction, signer, options })`
+### `sendSmartTransaction({ transaction, signer, options })`
 
-Uses:
+Sends a transaction with helper logic for compute units, priority fees, and retry behavior.
 
-- Solana simulation to estimate compute units
-- QuickNode Priority Fee API when available
-- compute budget instruction injection
-- retry loop with backoff
-
-Requires: no add-on strictly required, but `priorityFees` makes it much better
+Add-on required: none, but `priorityFees` is strongly recommended
 
 ```ts
 import bs58 from 'bs58';
@@ -342,16 +473,10 @@ import {
   SystemProgram,
   Transaction,
 } from '@solana/web3.js';
-import { QNSolanaKit } from 'quicknode-solana-kit';
-
-const kit = new QNSolanaKit({
-  endpointUrl: process.env.QN_ENDPOINT_URL!,
-  addOns: { priorityFees: true },
-});
 
 const signer = Keypair.fromSecretKey(bs58.decode(process.env.WALLET_PRIVATE_KEY!));
 
-const transaction = new Transaction().add(
+const tx = new Transaction().add(
   SystemProgram.transfer({
     fromPubkey: signer.publicKey,
     toPubkey: signer.publicKey,
@@ -360,7 +485,7 @@ const transaction = new Transaction().add(
 );
 
 const result = await kit.sendSmartTransaction({
-  transaction,
+  transaction: tx,
   signer,
   options: {
     feeLevel: 'recommended',
@@ -378,15 +503,34 @@ console.log(result.computeUnitsUsed);
 console.log(result.confirmationMs);
 ```
 
-#### `kit.prepareSmartTransaction({ transaction, payer, options })`
+What it does internally:
 
-Prepares a transaction with compute budget instructions and recent blockhash, but does not send it.
+1. optionally simulates the transaction
+2. estimates compute units
+3. tries to fetch priority fee recommendations
+4. injects compute budget instructions
+5. gets a blockhash
+6. signs the transaction
+7. sends raw transaction
+8. confirms it
+9. retries on failure
 
-This is useful for wallet adapters.
+Important note:
+
+- if fee estimation fails, it falls back to a default compute unit price
+- `useJito` exists in options, but Jito routing is not currently wired into this method
+
+### `prepareSmartTransaction({ transaction, payer, options })`
+
+Prepares a transaction but does not send it.
+
+Add-on required: none, but `priorityFees` is strongly recommended
+
+This is useful for wallet-adapter flows.
 
 ```ts
 const prepared = await kit.prepareSmartTransaction({
-  transaction: myTransaction,
+  transaction: myTx,
   payer: wallet.publicKey,
   options: {
     feeLevel: 'high',
@@ -397,56 +541,102 @@ const prepared = await kit.prepareSmartTransaction({
 console.log(prepared.priorityFeeMicroLamports);
 console.log(prepared.computeUnits);
 
-const signature = await wallet.sendTransaction(prepared.transaction, kit.connection);
-console.log(signature);
+const sig = await wallet.sendTransaction(prepared.transaction, kit.connection);
+console.log(sig);
 ```
 
-### Digital Assets and Tokens
+How it works:
 
-#### `kit.getAssetsByOwner(options)`
+- gets priority fee if available
+- adds compute budget instructions
+- fetches a recent blockhash
+- sets the fee payer
+- returns the prepared transaction
 
-Requires: `das`
+### `estimatePriorityFees(options?)`
+
+Gets live priority fee estimates from QuickNode.
+
+Add-on required: `priorityFees`
+
+```ts
+const fees = await kit.estimatePriorityFees({
+  lastNBlocks: 100,
+});
+
+console.log(fees.low);
+console.log(fees.medium);
+console.log(fees.recommended);
+console.log(fees.high);
+console.log(fees.extreme);
+console.log(fees.networkCongestion);
+```
+
+With account filter:
+
+```ts
+const fees = await kit.estimatePriorityFees({
+  account: 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4',
+  lastNBlocks: 50,
+});
+```
+
+How it works:
+
+- calls QuickNode custom RPC method `qn_estimatePriorityFees`
+- maps response to fee levels
+
+### `getAssetsByOwner(options)`
 
 Gets digital assets owned by a wallet.
 
+Add-on required: `das`
+
 ```ts
-const result = await kit.getAssetsByOwner({
-  ownerAddress: 'E645TckHQnDcavVv92Etc6xSWQaq8zzPtPRGBheviRAk',
+const assets = await kit.getAssetsByOwner({
+  ownerAddress: 'WALLET_ADDRESS',
   limit: 10,
   page: 1,
 });
 
-console.log(result.total);
+console.log(assets.total);
 
-for (const asset of result.items) {
-  console.log(asset.id);
-  console.log(asset.content.metadata.name);
-  console.log(asset.ownership.owner);
-  console.log(asset.compression?.compressed);
+for (const item of assets.items) {
+  console.log(item.id);
+  console.log(item.content.metadata.name);
+  console.log(item.ownership.owner);
+  console.log(item.compression?.compressed);
 }
 ```
 
-#### `kit.getAsset(mintAddress)`
+How it works:
 
-Requires: `das`
+- calls DAS RPC method `getAssetsByOwner`
 
-Gets one asset by id or mint address.
+### `getAsset(mintAddress)`
+
+Gets one digital asset.
+
+Add-on required: `das`
 
 ```ts
-const asset = await kit.getAsset('NFT_MINT_OR_ASSET_ID');
+const asset = await kit.getAsset('ASSET_ID_OR_MINT');
 
 console.log(asset.id);
 console.log(asset.content.metadata.name);
 console.log(asset.content.metadata.symbol);
 console.log(asset.content.metadata.image);
-console.log(asset.royalty?.basis_points);
 ```
 
-#### `kit.getAssetsByCollection(options)`
+How it works:
 
-Requires: `das`
+- calls DAS RPC method `getAsset`
 
-Gets assets by collection mint.
+### `getAssetsByCollection(options)`
+
+Gets assets by collection.
+
+Add-on required: `das`
 
 ```ts
 const collectionAssets = await kit.getAssetsByCollection({
@@ -456,31 +646,32 @@ const collectionAssets = await kit.getAssetsByCollection({
 });
 
 console.log(collectionAssets.total);
-console.log(collectionAssets.items.map(item => item.content.metadata.name));
 ```
 
-#### `kit.searchAssets(options)`
+How it works:
 
-Requires: `das`
+- calls DAS RPC method `getAssetsByGroup`
+- uses collection grouping
 
-Searches by owner, creator, collection, token type, or compressed status.
+### `searchAssets(options)`
+
+Searches digital assets with filters.
+
+Add-on required: `das`
+
+By owner:
 
 ```ts
-const compressed = await kit.searchAssets({
+const result = await kit.searchAssets({
   ownerAddress: 'WALLET_ADDRESS',
-  tokenType: 'compressedNFT',
-  compressed: true,
-  limit: 50,
-  page: 1,
+  limit: 25,
 });
-
-console.log(compressed.items.length);
 ```
 
 By creator:
 
 ```ts
-const created = await kit.searchAssets({
+const result = await kit.searchAssets({
   creatorAddress: 'CREATOR_ADDRESS',
   limit: 25,
 });
@@ -489,17 +680,32 @@ const created = await kit.searchAssets({
 By collection:
 
 ```ts
-const byCollection = await kit.searchAssets({
+const result = await kit.searchAssets({
   collection: 'COLLECTION_MINT',
   limit: 25,
 });
 ```
 
-#### `kit.getAssetProof(assetId)`
+Compressed NFTs only:
 
-Requires: `das`
+```ts
+const result = await kit.searchAssets({
+  tokenType: 'compressedNFT',
+  compressed: true,
+  limit: 25,
+});
+```
 
-Gets the Merkle proof for a compressed asset.
+How it works:
+
+- builds a DAS search request
+- calls DAS RPC method `searchAssets`
+
+### `getAssetProof(assetId)`
+
+Gets the Merkle proof for a compressed NFT.
+
+Add-on required: `das`
 
 ```ts
 const proof = await kit.getAssetProof('ASSET_ID');
@@ -509,55 +715,63 @@ console.log(proof.proof);
 console.log(proof.tree_id);
 ```
 
-#### `kit.getTokenAccounts(walletAddress)`
+How it works:
 
-No add-on required.
+- calls DAS RPC method `getAssetProof`
 
-Gets parsed SPL token accounts using standard Solana RPC.
+### `getTokenAccounts(walletAddress)`
+
+Gets SPL token accounts and balances for a wallet.
+
+Add-on required: none
 
 ```ts
-const tokenAccounts = await kit.getTokenAccounts('WALLET_ADDRESS');
+const tokens = await kit.getTokenAccounts('WALLET_ADDRESS');
 
-for (const token of tokenAccounts) {
+for (const token of tokens) {
   if (token.uiAmount > 0) {
     console.log(token.mint, token.uiAmount);
   }
 }
 ```
 
-### Streaming
+How it works:
 
-#### `kit.watchAccount(address, onUpdate, options?)`
+- calls normal Solana RPC method `getTokenAccountsByOwner`
+- uses `jsonParsed` encoding
 
-No paid add-on required for basic usage.
+### `watchAccount(address, onUpdate, options?)`
 
-If `yellowstone` is enabled in config, the package prefers that path, but the current implementation falls back to standard WebSocket subscriptions.
+Watches an account in real time.
+
+Add-on required: none
 
 ```ts
-const handle = kit.watchAccount(
-  'E645TckHQnDcavVv92Etc6xSWQaq8zzPtPRGBheviRAk',
-  (update) => {
-    console.log(update.pubkey);
-    console.log(update.lamports);
-    console.log(update.owner);
-    console.log(update.slot);
-    console.log(update.backend);
-  },
-  {
-    backend: 'auto',
-    commitment: 'confirmed',
-  },
-);
+const handle = kit.watchAccount('WALLET_ADDRESS', (update) => {
+  console.log(update.pubkey);
+  console.log(update.lamports);
+  console.log(update.owner);
+  console.log(update.slot);
+  console.log(update.backend);
+});
 
 setTimeout(() => {
   console.log(handle.isConnected());
   handle.unsubscribe();
-}, 15_000);
+}, 15000);
 ```
 
-#### `kit.watchProgram(programId, onTx, options?)`
+How it works:
 
-Watches program logs through Solana WebSockets.
+- uses Solana websocket subscriptions through `Connection`
+- if `yellowstone` is set, the code prefers that route
+- current implementation falls back to standard websocket behavior
+
+### `watchProgram(programId, onTx, options?)`
+
+Watches program logs in real time.
+
+Add-on required: none
 
 ```ts
 const handle = kit.watchProgram(
@@ -567,34 +781,36 @@ const handle = kit.watchProgram(
     console.log(tx.logs);
     console.log(tx.err);
   },
-  { commitment: 'confirmed' },
 );
 ```
 
-#### `kit.watchSlot(onSlot)`
+How it works:
+
+- uses `connection.onLogs(...)`
+
+### `watchSlot(onSlot)`
 
 Watches slot changes.
 
+Add-on required: none
+
 ```ts
 const handle = kit.watchSlot((slot) => {
-  console.log('slot', slot);
+  console.log(slot);
 });
 
-setTimeout(() => handle.unsubscribe(), 10_000);
+setTimeout(() => handle.unsubscribe(), 10000);
 ```
 
-### Jupiter / Metis
+How it works:
 
-Requires: `metis`
+- uses `connection.onSlotChange(...)`
 
-The SDK builds URLs under your endpoint like:
+### `getSwapQuote(options)`
 
-```txt
-https://your-endpoint.quiknode.pro/TOKEN/jupiter/v6/quote
-https://your-endpoint.quiknode.pro/TOKEN/jupiter/v6/swap
-```
+Gets a Jupiter quote through the Metis add-on.
 
-#### `kit.getSwapQuote(options)`
+Add-on required: `metis`
 
 ```ts
 import { TOKENS } from 'quicknode-solana-kit';
@@ -612,75 +828,53 @@ console.log(quote.priceImpactPct);
 console.log(quote.routePlan);
 ```
 
-#### `kit.swap(options)`
+How it works:
 
-The SDK flow is:
+- calls REST route `/jupiter/v6/quote`
 
-1. fetch quote
-2. request serialized swap transaction
-3. deserialize transaction
-4. sign locally
-5. send with normal Solana connection
-6. confirm
+### `swap(options)`
+
+Performs a Jupiter swap through Metis.
+
+Add-on required: `metis`
 
 ```ts
 import bs58 from 'bs58';
 import { Keypair } from '@solana/web3.js';
-import { QNSolanaKit, TOKENS } from 'quicknode-solana-kit';
+import { TOKENS } from 'quicknode-solana-kit';
 
 const signer = Keypair.fromSecretKey(bs58.decode(process.env.WALLET_PRIVATE_KEY!));
 
-const kit = new QNSolanaKit({
-  endpointUrl: process.env.QN_ENDPOINT_URL!,
-  addOns: { metis: true },
-});
-
-const swapResult = await kit.swap({
+const result = await kit.swap({
   inputMint: TOKENS.SOL,
   outputMint: TOKENS.USDC,
-  amount: BigInt(100_000_000),
+  amount: BigInt(10_000_000),
   userPublicKey: signer.publicKey.toString(),
   signer,
-  slippageBps: 50,
+  slippageBps: 100,
   feeLevel: 'recommended',
 });
 
-console.log(swapResult.signature);
-console.log(swapResult.inputAmount);
-console.log(swapResult.outputAmount);
-console.log(swapResult.priceImpactPct);
+console.log(result.signature);
+console.log(result.inputAmount);
+console.log(result.outputAmount);
+console.log(result.priceImpactPct);
 ```
 
-#### `TOKENS`
+How it works:
 
-Token shortcuts:
+1. gets a quote
+2. requests a serialized swap transaction
+3. deserializes the base64 transaction
+4. signs locally
+5. sends with normal Solana connection
+6. confirms the result
 
-```ts
-import { TOKENS } from 'quicknode-solana-kit';
+### `getPumpFunTokens(options?)`
 
-console.log(TOKENS.SOL);
-console.log(TOKENS.USDC);
-console.log(TOKENS.USDT);
-console.log(TOKENS.BONK);
-console.log(TOKENS.JUP);
-console.log(TOKENS.RAY);
-console.log(TOKENS.WIF);
-```
+Gets recent pump.fun tokens.
 
-### Pump.fun
-
-Requires: `pumpfun`
-
-The SDK uses REST paths under your endpoint:
-
-```txt
-/pump-fun/coins
-/pump-fun/coins/:mint
-/pump-fun/coins/:mint/holders
-/pump-fun/trades/all
-```
-
-#### `kit.getPumpFunTokens(options?)`
+Add-on required: `pumpfun`
 
 ```ts
 const tokens = await kit.getPumpFunTokens({
@@ -694,7 +888,15 @@ for (const token of tokens) {
 }
 ```
 
-#### `kit.getPumpFunToken(mint)`
+How it works:
+
+- calls REST route `/pump-fun/coins`
+
+### `getPumpFunToken(mint)`
+
+Gets a single pump.fun token by mint.
+
+Add-on required: `pumpfun`
 
 ```ts
 const token = await kit.getPumpFunToken('TOKEN_MINT');
@@ -703,10 +905,17 @@ console.log(token.name);
 console.log(token.symbol);
 console.log(token.creator);
 console.log(token.price);
-console.log(token.bondingCurve.complete);
 ```
 
-#### `kit.getPumpFunTokensByCreator(options)`
+How it works:
+
+- calls REST route `/pump-fun/coins/:mint`
+
+### `getPumpFunTokensByCreator(options)`
+
+Gets pump.fun tokens by creator wallet.
+
+Add-on required: `pumpfun`
 
 ```ts
 const created = await kit.getPumpFunTokensByCreator({
@@ -716,7 +925,15 @@ const created = await kit.getPumpFunTokensByCreator({
 });
 ```
 
-#### `kit.getPumpFunTokenHolders(mint)`
+How it works:
+
+- calls `/pump-fun/coins?creator=...`
+
+### `getPumpFunTokenHolders(mint)`
+
+Gets holder distribution for a token.
+
+Add-on required: `pumpfun`
 
 ```ts
 const holders = await kit.getPumpFunTokenHolders('TOKEN_MINT');
@@ -726,7 +943,15 @@ for (const holder of holders.slice(0, 10)) {
 }
 ```
 
-#### `kit.getPumpFunTokenTrades(mint, options?)`
+How it works:
+
+- calls REST route `/pump-fun/coins/:mint/holders`
+
+### `getPumpFunTokenTrades(mint, options?)`
+
+Gets recent trades for a token.
+
+Add-on required: `pumpfun`
 
 ```ts
 const trades = await kit.getPumpFunTokenTrades('TOKEN_MINT', {
@@ -739,13 +964,15 @@ for (const trade of trades) {
 }
 ```
 
-### Stablecoin Balance API
+How it works:
 
-Requires: `stablecoinBalance`
+- calls REST route `/pump-fun/trades/all`
 
-Uses QuickNode custom RPC method `qn_getWalletStablecoinBalances`.
+### `getStablecoinBalance(options)`
 
-#### `kit.getStablecoinBalance(options)`
+Gets stablecoin balances across multiple chains.
+
+Add-on required: `stablecoinBalance`
 
 ```ts
 const balances = await kit.getStablecoinBalance({
@@ -753,7 +980,6 @@ const balances = await kit.getStablecoinBalance({
   chains: ['solana', 'ethereum', 'base'],
 });
 
-console.log(balances.walletAddress);
 console.log(balances.totalUsdValue);
 
 for (const balance of balances.balances) {
@@ -761,18 +987,15 @@ for (const balance of balances.balances) {
 }
 ```
 
-### OpenOcean
+How it works:
 
-Requires: `openocean`
+- calls custom RPC method `qn_getWalletStablecoinBalances`
 
-The SDK uses REST paths under:
+### `getOpenOceanQuote(options)`
 
-```txt
-/openocean/v4/solana/quote
-/openocean/v4/solana/swap_quote
-```
+Gets a swap quote from OpenOcean.
 
-#### `kit.getOpenOceanQuote(options)`
+Add-on required: `openocean`
 
 ```ts
 const quote = await kit.getOpenOceanQuote({
@@ -788,9 +1011,15 @@ console.log(quote.minOutAmount);
 console.log(quote.priceImpact);
 ```
 
-#### `kit.openOceanSwap(options)`
+How it works:
 
-Like the Metis integration, this fetches a serialized transaction, signs locally, sends, then confirms.
+- calls REST route `/openocean/v4/solana/quote`
+
+### `openOceanSwap(options)`
+
+Performs a swap through OpenOcean.
+
+Add-on required: `openocean`
 
 ```ts
 import bs58 from 'bs58';
@@ -812,24 +1041,19 @@ console.log(result.inAmount);
 console.log(result.outAmount);
 ```
 
-#### `OO_TOKENS`
+How it works:
 
-```ts
-import { OO_TOKENS } from 'quicknode-solana-kit';
+1. requests serialized transaction from add-on
+2. decodes base64 transaction
+3. signs locally
+4. sends using normal Solana connection
+5. confirms it
 
-console.log(OO_TOKENS.SOL);
-console.log(OO_TOKENS.USDC);
-console.log(OO_TOKENS.USDT);
-console.log(OO_TOKENS.BONK);
-```
+### `sendMerkleProtectedTransaction(options)`
 
-### MEV Protection
+Sends a signed transaction through Merkle for MEV protection.
 
-These methods accept a base64-encoded signed transaction and submit it through the add-on provider, then confirm using a normal Solana connection.
-
-#### `kit.sendMerkleProtectedTransaction(options)`
-
-Requires: `merkle`
+Add-on required: `merkle`
 
 ```ts
 const result = await kit.sendMerkleProtectedTransaction({
@@ -839,12 +1063,18 @@ const result = await kit.sendMerkleProtectedTransaction({
 
 console.log(result.signature);
 console.log(result.provider);
-console.log(result.confirmationMs);
 ```
 
-#### `kit.sendBlinkLabsTransaction(options)`
+How it works:
 
-Requires: `blinklabs`
+- calls custom RPC method `mev_sendTransaction`
+- confirms with normal Solana connection
+
+### `sendBlinkLabsTransaction(options)`
+
+Sends a signed transaction through Blink Labs.
+
+Add-on required: `blinklabs`
 
 ```ts
 const result = await kit.sendBlinkLabsTransaction({
@@ -854,16 +1084,18 @@ const result = await kit.sendBlinkLabsTransaction({
 
 console.log(result.signature);
 console.log(result.provider);
-console.log(result.confirmationMs);
 ```
 
-### Iris Transaction Sender
+How it works:
 
-Requires: `iris`
+- calls custom RPC method `blinklabs_sendTransaction`
+- confirms with normal Solana connection
 
-Uses QuickNode custom RPC method `iris_sendTransaction`.
+### `sendIrisTransaction(options)`
 
-#### `kit.sendIrisTransaction(options)`
+Sends a signed transaction through the Iris add-on.
+
+Add-on required: `iris`
 
 ```ts
 const result = await kit.sendIrisTransaction({
@@ -877,13 +1109,16 @@ console.log(result.slot);
 console.log(result.confirmationMs);
 ```
 
-### GoldRush
+How it works:
 
-Requires: `goldrush`
+- calls custom RPC method `iris_sendTransaction`
+- confirms with normal Solana RPC
 
-Uses REST paths under `/goldrush/v1`.
+### `getGoldRushBalances(options)`
 
-#### `kit.getGoldRushBalances(options)`
+Gets multichain balances through GoldRush.
+
+Add-on required: `goldrush`
 
 ```ts
 const balances = await kit.getGoldRushBalances({
@@ -901,7 +1136,15 @@ for (const item of balances.items) {
 }
 ```
 
-#### `kit.getGoldRushTransactions(options)`
+How it works:
+
+- calls REST route under `/goldrush/v1/`
+
+### `getGoldRushTransactions(options)`
+
+Gets multichain transaction history through GoldRush.
+
+Add-on required: `goldrush`
 
 ```ts
 const txs = await kit.getGoldRushTransactions({
@@ -911,24 +1154,20 @@ const txs = await kit.getGoldRushTransactions({
   pageNumber: 0,
 });
 
-console.log(txs.currentPage);
-
 for (const tx of txs.items) {
   console.log(tx.txHash, tx.successful, tx.value);
 }
 ```
 
-### Titan
+How it works:
 
-Requires: `titan`
+- calls REST route under `/goldrush/v1/`
 
-The SDK supports:
+### `getTitanSwapQuote(options)`
 
-- point-in-time quote
-- swap execution
-- quote streaming over WebSocket
+Gets a swap quote from Titan.
 
-#### `kit.getTitanSwapQuote(options)`
+Add-on required: `titan`
 
 ```ts
 const quote = await kit.getTitanSwapQuote({
@@ -940,11 +1179,18 @@ const quote = await kit.getTitanSwapQuote({
 
 console.log(quote.inAmount);
 console.log(quote.outAmount);
-console.log(quote.minOutAmount);
 console.log(quote.routes);
 ```
 
-#### `kit.titanSwap(options)`
+How it works:
+
+- calls REST route `/titan/v1/quote`
+
+### `titanSwap(options)`
+
+Performs a swap through Titan.
+
+Add-on required: `titan`
 
 ```ts
 const result = await kit.titanSwap({
@@ -952,7 +1198,7 @@ const result = await kit.titanSwap({
   outputMint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
   amount: '10000000',
   slippageBps: 50,
-  userPublicKey: walletPublicKey,
+  userPublicKey: 'WALLET_PUBLIC_KEY',
 });
 
 console.log(result.signature);
@@ -960,7 +1206,19 @@ console.log(result.inAmount);
 console.log(result.outAmount);
 ```
 
-#### `kit.subscribeTitanQuotes(options, onQuote, onError?)`
+How it works:
+
+1. gets a Titan quote
+2. requests a serialized transaction
+3. deserializes it
+4. sends it through normal Solana connection
+5. confirms it
+
+### `subscribeTitanQuotes(options, onQuote, onError?)`
+
+Subscribes to live quote updates from Titan over WebSocket.
+
+Add-on required: `titan`
 
 ```ts
 const unsubscribe = kit.subscribeTitanQuotes(
@@ -971,23 +1229,25 @@ const unsubscribe = kit.subscribeTitanQuotes(
     slippageBps: 50,
   },
   (quote) => {
-    console.log('quote', quote.outAmount, quote.priceImpactPct);
+    console.log('quote', quote.outAmount);
   },
   (err) => {
     console.error(err);
   },
 );
 
-setTimeout(() => unsubscribe(), 15_000);
+setTimeout(() => unsubscribe(), 15000);
 ```
 
-### Scorechain
+How it works:
 
-Requires: `scorechain`
+- opens a WebSocket to the Titan stream route on your endpoint
 
-Uses REST path `/scorechain/v1/risk`.
+### `assessWalletRisk(options)`
 
-#### `kit.assessWalletRisk(options)`
+Gets Scorechain risk information for a wallet.
+
+Add-on required: `scorechain`
 
 ```ts
 const assessment = await kit.assessWalletRisk({
@@ -1000,12 +1260,19 @@ console.log(assessment.riskScore);
 console.log(assessment.riskLevel);
 console.log(assessment.amlStatus);
 console.log(assessment.flags);
-console.log(assessment.reportUrl);
 ```
 
-#### `kit.isWalletSafe(address)`
+How it works:
 
-Returns `true` only when:
+- calls REST route `/scorechain/v1/risk`
+
+### `isWalletSafe(address)`
+
+Returns a simple safe/unsafe boolean using Scorechain.
+
+Add-on required: `scorechain`
+
+This returns `true` only when:
 
 - `amlStatus === 'clean'`
 - `riskLevel === 'low'`
@@ -1013,6 +1280,42 @@ Returns `true` only when:
 ```ts
 const safe = await kit.isWalletSafe('WALLET_ADDRESS');
 console.log(safe);
+```
+
+How it works:
+
+- first calls `assessWalletRisk()`
+- then applies a simple clean + low-risk check
+
+## Token Constants
+
+### `TOKENS`
+
+Useful for Jupiter / Metis examples.
+
+```ts
+import { TOKENS } from 'quicknode-solana-kit';
+
+console.log(TOKENS.SOL);
+console.log(TOKENS.USDC);
+console.log(TOKENS.USDT);
+console.log(TOKENS.BONK);
+console.log(TOKENS.JUP);
+console.log(TOKENS.RAY);
+console.log(TOKENS.WIF);
+```
+
+### `OO_TOKENS`
+
+Useful for OpenOcean examples.
+
+```ts
+import { OO_TOKENS } from 'quicknode-solana-kit';
+
+console.log(OO_TOKENS.SOL);
+console.log(OO_TOKENS.USDC);
+console.log(OO_TOKENS.USDT);
+console.log(OO_TOKENS.BONK);
 ```
 
 ## Error Handling
@@ -1053,9 +1356,7 @@ try {
 }
 ```
 
-## Examples Included In The Package
-
-Run the examples from the package folder:
+## Included Example Scripts
 
 ```bash
 npm run example:tx
@@ -1065,7 +1366,7 @@ npm run example:swap
 npm run example:all
 ```
 
-Environment variables used by the examples:
+Suggested `.env` values:
 
 ```bash
 QN_ENDPOINT_URL=
@@ -1077,77 +1378,66 @@ ADDON_METIS=true
 EXECUTE_SWAP=false
 ```
 
-## Minimal Examples
+## Recommended Learning Order
 
-### Minimal client
+If you are new to Solana or QuickNode, this order works well:
+
+1. create `kit`
+2. use `kit.connection.getBalance()`
+3. use `kit.getTokenAccounts()`
+4. run `kit.checkAddOns()`
+5. if `priorityFees` is enabled, try `kit.estimatePriorityFees()`
+6. if `das` is enabled, try `kit.getAssetsByOwner()`
+7. if `metis` is enabled, try `kit.getSwapQuote()`
+
+## Starter Example
 
 ```ts
+import { PublicKey } from '@solana/web3.js';
 import { QNSolanaKit } from 'quicknode-solana-kit';
 
 const kit = new QNSolanaKit({
   endpointUrl: process.env.QN_ENDPOINT_URL!,
-});
-```
-
-### Minimal fee estimate
-
-```ts
-const fees = await kit.estimatePriorityFees();
-console.log(fees.recommended);
-```
-
-### Minimal NFT query
-
-```ts
-const assets = await kit.getAssetsByOwner({
-  ownerAddress: 'WALLET_ADDRESS',
+  addOns: {
+    priorityFees: true,
+    das: true,
+  },
 });
 
-console.log(assets.items.length);
+async function main() {
+  const wallet = new PublicKey('E645TckHQnDcavVv92Etc6xSWQaq8zzPtPRGBheviRAk');
+
+  const balance = await kit.connection.getBalance(wallet);
+  console.log('SOL balance:', balance / 1e9);
+
+  const tokenAccounts = await kit.getTokenAccounts(wallet.toString());
+  console.log('Token accounts:', tokenAccounts.length);
+
+  const fees = await kit.estimatePriorityFees();
+  console.log('Recommended priority fee:', fees.recommended);
+
+  const assets = await kit.getAssetsByOwner({
+    ownerAddress: wallet.toString(),
+    limit: 5,
+  });
+  console.log('Assets:', assets.items.length);
+}
+
+main().catch(console.error);
 ```
 
-### Minimal swap quote
+## Current Limitations
 
-```ts
-import { TOKENS } from 'quicknode-solana-kit';
+- `yellowstone` is exposed in config and add-on checks, but account streaming currently falls back to standard Solana WebSockets
+- `liljit` is probed by `checkAddOns()`, but `sendSmartTransaction()` does not currently route through Jito bundles
+- `sendSmartTransaction()` works without `priorityFees`, but falls back to a default compute unit price
+- several swap integrations return a serialized transaction that the SDK then signs and sends locally
 
-const quote = await kit.getSwapQuote({
-  inputMint: TOKENS.SOL,
-  outputMint: TOKENS.USDC,
-  amount: BigInt(1_000_000_000),
-});
+## Beginner Guide
 
-console.log(quote.outAmount);
-```
+If you want a more beginner-first walkthrough, see:
 
-## Notes and Current Limitations
-
-- `yellowstone` is exposed in config and add-on checks, but account streaming currently falls back to standard Solana WebSockets.
-- `liljit` is probed by `checkAddOns()`, but `sendSmartTransaction()` does not currently route through Jito bundles yet.
-- `sendSmartTransaction()` works without `priorityFees`, but falls back to a default compute unit price.
-- some add-ons return serialized transactions; the SDK signs and sends those locally using `@solana/web3.js`
-
-## Import Patterns
-
-Class-based usage:
-
-```ts
-import { QNSolanaKit } from 'quicknode-solana-kit';
-```
-
-Function-level usage:
-
-```ts
-import {
-  estimatePriorityFees,
-  getAssetsByOwner,
-  getSwapQuote,
-  swap,
-  watchAccount,
-  TOKENS,
-  OO_TOKENS,
-} from 'quicknode-solana-kit';
-```
+- [readmetounderstand.md](/home/rachit/Videos/QuickNode-Starter-Kit/qn-solana-kit-v2/readmetounderstand.md)
 
 ## License
 
